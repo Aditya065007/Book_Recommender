@@ -4,6 +4,10 @@ import gdown
 import streamlit as st
 import pandas as pd
 
+st.set_page_config(
+    page_title="📚 Book Recommendation Dashboard",
+    layout="wide"
+    
 # --------------------------------------------------
 # Download helper (Google Drive → local)
 # --------------------------------------------------
@@ -31,68 +35,161 @@ FILES = {
 for fname, fid in FILES.items():
     fetch(fid, fname)
 
-# --------------------------------------------------
-# Load data & models
-# --------------------------------------------------
-book_meta = pickle.load(open("book_meta.pkl", "rb"))
-item_df = pd.read_csv("item_data.csv")
-ratings_df = pd.read_csv("ratings_with_meta.csv")
-users_df = pd.read_csv("users_10001_names.csv")
 
-item_similarity_topk = pickle.load(open("item_similarity_topk.pkl", "rb"))
-svd_model = pickle.load(open("svd_model.pkl", "rb"))
+# =====================================================
+# LOAD DATA & MODELS
+# =====================================================
+@st.cache_data(show_spinner="Loading models and data...")
+def load_data():
+    svd_model = pickle.load(open("svd_model.pkl", "rb"))
+    tfidf_vectorizer = pickle.load(open("tfidf_vectorizer.pkl", "rb"))
+    item_similarity_topk = pickle.load(open("item_similarity_topk.pkl", "rb"))
 
-# --------------------------------------------------
-# Recommendation functions
-# --------------------------------------------------
-def recommend_collaborative(user_id, top_n=5):
-    seen = set(ratings_df[ratings_df["user_id"] == user_id]["item_id"])
-    all_items = set(ratings_df["item_id"].unique())
-    unseen = all_items - seen
+    item_df = pd.read_csv("item_data.csv")
+    ratings_df = pd.read_csv("ratings_with_meta.csv", low_memory=False)
+    book_meta = pickle.load(open("book_meta.pkl", "rb"))
+    user_map = pd.read_csv("users_10001_names.csv")
 
-    preds = [(iid, svd_model.predict(user_id, iid).est) for iid in unseen]
-    preds.sort(key=lambda x: x[1], reverse=True)
+    return (
+        svd_model,
+        tfidf_vectorizer,
+        item_similarity_topk,
+        item_df,
+        ratings_df,
+        book_meta,
+        user_map
+    )
 
-    top_items = [i[0] for i in preds[:top_n]]
-    return book_meta[book_meta["item_id"].isin(top_items)][
-        ["title", "author", "year", "publisher", "avg_rating"]
-    ]
+(
+    svd_model,
+    tfidf_vectorizer,
+    item_similarity_topk,
+    item_df,
+    ratings_df,
+    book_meta,
+    user_map
+) = load_data()
 
-def recommend_content(book_title, top_n=5):
-    idx = item_df[item_df["title"] == book_title].index[0]
+# Normalize column names just in case
+user_map.columns = user_map.columns.str.lower()
 
-    # Top-K similarity (already sorted)
-    similar_items = item_similarity_topk[idx][:top_n]
-    similar_item_ids = [item_df.iloc[i]["item_id"] for i, _ in similar_items]
+# Create user name → ID mapping
+user_name_to_id = dict(zip(user_map["user_name"], user_map["user_id"]))
 
-    return book_meta[book_meta["item_id"].isin(similar_item_ids)][
-        ["title", "author", "year", "publisher", "avg_rating"]
-    ]
-
-# --------------------------------------------------
-# Streamlit UI
-# --------------------------------------------------
-st.set_page_config(page_title="Book Recommender", layout="wide")
+# =====================================================
+# HEADER
+# =====================================================
 st.title("📚 Book Recommendation System")
+st.divider()
 
+# =====================================================
+# MODE SELECTION
+# =====================================================
 mode = st.radio(
-    "Choose recommendation type:",
-    ["Collaborative Filtering", "Content-Based"],
+    "Choose Recommendation Mode",
+    ["👤 Recommended by a critic", "📘 Recommend Similar Books"],
     horizontal=True
 )
 
-if mode == "Collaborative Filtering":
-    user_name = st.selectbox("Select User", users_df["user_name"])
-    user_id = users_df[users_df["user_name"] == user_name]["user_id"].iloc[0]
+# =====================================================
+# COLLABORATIVE FILTERING
+# =====================================================
+if mode == "👤 Recommended by a critic":
+
+    st.subheader("👤 Recommendations by critic")
+
+    selected_user_name = st.selectbox(
+        "Select Critic",
+        options=sorted(user_name_to_id.keys())
+    )
+
+    user_id = user_name_to_id[selected_user_name]
+    top_n = st.slider("Number of recommendations", 5, 15, 10)
 
     if st.button("Get Recommendations"):
-        recs = recommend_collaborative(user_id)
-        st.dataframe(recs, use_container_width=True)
 
+        seen_items = set(
+            ratings_df[ratings_df["user_id"] == user_id]["item_id"]
+        )
+        all_items = set(ratings_df["item_id"].unique())
+        unseen_items = all_items - seen_items
+
+        preds = [
+            (iid, svd_model.predict(user_id, iid).est)
+            for iid in unseen_items
+        ]
+        preds.sort(key=lambda x: x[1], reverse=True)
+
+        top_items = [i[0] for i in preds[:top_n]]
+
+        recommendations = book_meta[
+            book_meta["item_id"].isin(top_items)
+        ]
+
+        st.markdown("### 📚 Recommended Books")
+
+        for _, row in recommendations.iterrows():
+            st.markdown(
+                f"""
+                <div style="padding:16px; margin-bottom:12px;
+                            border-radius:10px; background-color:#f8f9fa;
+                            border-left:6px solid #4CAF50;">
+                    <h4>📘 {row['title']}</h4>
+                    <p>
+                        ✍️ <b>{row['author']}</b><br>
+                        📅 {row['year']}<br>
+                        🏢 {row['publisher']}<br>
+                        ⭐ Average Rating: {row['avg_rating']:.2f}
+                    </p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+# =====================================================
+# CONTENT-BASED FILTERING (TOP-K SAFE)
+# =====================================================
 else:
-    book_title = st.selectbox("Select a Book", item_df["title"].values)
 
-    if st.button("Get Similar Books"):
-        recs = recommend_content(book_title)
-        st.dataframe(recs, use_container_width=True)
+    st.subheader("📘 Find Similar Books")
 
+    book_title = st.selectbox(
+        "Select a Book",
+        sorted(item_df["title"].unique())
+    )
+
+    top_n = st.slider("Number of similar books", 5, 15, 10)
+
+    if st.button("Find Similar Books"):
+
+        idx = item_df[item_df["title"] == book_title].index[0]
+
+        # Top-K similarity lookup (already sorted)
+        similar_items = item_similarity_topk[idx][:top_n]
+        similar_item_ids = [
+            item_df.iloc[i]["item_id"] for i, _ in similar_items
+        ]
+
+        recommendations = book_meta[
+            book_meta["item_id"].isin(similar_item_ids)
+        ]
+
+        st.markdown("### 📖 Similar Book Recommendations")
+
+        for _, row in recommendations.iterrows():
+            st.markdown(
+                f"""
+                <div style="padding:16px; margin-bottom:12px;
+                            border-radius:10px; background-color:#eef3ff;
+                            border-left:6px solid #3f51b5;">
+                    <h4>📘 {row['title']}</h4>
+                    <p>
+                        ✍️ <b>{row['author']}</b><br>
+                        📅 {row['year']}<br>
+                        🏢 {row['publisher']}<br>
+                        ⭐ Average Rating: {row['avg_rating']:.2f}
+                    </p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
