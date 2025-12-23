@@ -82,8 +82,8 @@ mode = st.radio(
 )
 
 if mode == "Collaborative Filtering":
-    user_name = st.selectbox("Select User", users_df["name"])
-    user_id = users_df[users_df["name"] == user_name]["user_id"].iloc[0]
+    user_name = st.selectbox("Select User", users_df["user_name"])
+    user_id = users_df[users_df["user_name"] == user_name]["user_id"].iloc[0]
 
     if st.button("Get Recommendations"):
         recs = recommend_collaborative(user_id)
@@ -95,3 +95,4 @@ else:
     if st.button("Get Similar Books"):
         recs = recommend_content(book_title)
         st.dataframe(recs, use_container_width=True)
+
