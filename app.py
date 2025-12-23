@@ -6,7 +6,7 @@ import pandas as pd
 
 st.set_page_config(
     page_title="📚 Book Recommendation Dashboard",
-    layout="wide"
+    layout="wide")
     
 # --------------------------------------------------
 # Download helper (Google Drive → local)
@@ -193,3 +193,4 @@ else:
                 """,
                 unsafe_allow_html=True
             )
+
