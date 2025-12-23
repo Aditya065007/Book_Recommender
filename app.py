@@ -4,13 +4,17 @@ import gdown
 import streamlit as st
 import pandas as pd
 
+# =====================================================
+# PAGE CONFIG
+# =====================================================
 st.set_page_config(
     page_title="📚 Book Recommendation Dashboard",
-    layout="wide")
-    
-# --------------------------------------------------
-# Download helper (Google Drive → local)
-# --------------------------------------------------
+    layout="wide"
+)
+
+# =====================================================
+# DOWNLOAD FILES FROM GOOGLE DRIVE (ONCE)
+# =====================================================
 def fetch(file_id, filename):
     if not os.path.exists(filename):
         gdown.download(
@@ -18,10 +22,6 @@ def fetch(file_id, filename):
             filename,
             quiet=False
         )
-
-# --------------------------------------------------
-# Google Drive FILE IDS (REPLACE THESE)
-# --------------------------------------------------
 FILES = {
     "book_meta.pkl": "1R02sJLBmQNVG__RqlIEMCVo052Q6e0pI",
     "item_data.csv": "1b5j6e69PuVm7Od21oEmfSDUZLayi2t6y",
@@ -34,7 +34,6 @@ FILES = {
 
 for fname, fid in FILES.items():
     fetch(fid, fname)
-
 
 # =====================================================
 # LOAD DATA & MODELS
@@ -193,4 +192,3 @@ else:
                 """,
                 unsafe_allow_html=True
             )
-
