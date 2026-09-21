@@ -22,6 +22,18 @@ A Streamlit dashboard offering two classic recommendation approaches over a book
 
 Both modes join predictions back to a book metadata table to display title, author, year, publisher, and rating.
 
+## Setup
+
+```bash
+pip install -r requirements.txt
+```
+
+Model artifacts (`svd_model.pkl`, `item_similarity.pkl`, `tfidf_vectorizer.pkl`) and data files (`item_data.csv`, `ratings_with_meta.csv`, `book_meta.pkl`, `users_10001_names.csv`) must be present alongside `app.py`.
+
+## Usage
+
+```bash
+streamlit run app.py
 ```
 
 ## Notes
