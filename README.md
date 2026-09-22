@@ -34,8 +34,3 @@ A Streamlit dashboard offering two classic, genuinely different approaches to re
 Both modes finish the same way: the recommended book IDs are matched against a metadata table to pull in the title, author, year, publisher, and average rating for display.
 
 
-
-
-```bash
-streamlit run app.py
-```
