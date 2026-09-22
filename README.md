@@ -1,6 +1,6 @@
 # Book Recommendation System
 
-**Live App:** [Add your Streamlit link here]
+**Live App:** https://bookrecommender-dpgm3s6zuthzslu963sfhm.streamlit.app/
 
 A Streamlit dashboard offering two classic, genuinely different approaches to recommending books: one based on what similar readers liked, and one based on how similar a book is to another book. Most real-world recommendation systems (Netflix, Amazon, Spotify) use some blend of both ideas — this app demonstrates each one separately so the difference is easy to see.
 
